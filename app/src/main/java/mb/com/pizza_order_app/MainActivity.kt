@@ -9,6 +9,7 @@ import android.hardware.camera2.CameraManager
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.SparseArray
 import android.view.View
 import android.widget.ImageButton
 import android.widget.ImageView
@@ -32,6 +33,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+
+        /** Calling function for getting image to text */
+        initImageToText()
 
         /** Implementation for flashlight on/off */
 
@@ -61,7 +65,7 @@ class MainActivity : AppCompatActivity() {
         })
 
 
-        /** Get the list of all the pizzas using RESTful API */
+        /** Get the list of all the pizzas (MENU) using RESTful API */
 
         menuButton.setOnClickListener {
 
@@ -100,8 +104,9 @@ class MainActivity : AppCompatActivity() {
             )}
 
 
-        // Get the cost of pizza using RESTful API
-        menuButton.setOnClickListener {
+        /** Get the cost of pizza based on the url provided in final exam session */
+
+        orderbutton.setOnClickListener {
 
             val client: OkHttpClient = OkHttpClient()
             val request = Request.Builder()
@@ -136,6 +141,29 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             )}
+
+
+        orderbutton.setOnClickListener {
+
+            var cost: Double = 26.0
+
+            // Below code crashes
+            /**when {
+                //radioGroup.Margherita.isChecked -> getCost("http://192.168.1.3:4000/api/cost?option1=1")
+                radioGroup.Margherita.isChecked -> cost = 15.0
+
+                //radioGroup.Romana.isChecked -> getCost("http://192.168.1.3:4000/api/cost?option2=1")
+                radioGroup.Romana.isChecked -> cost = 17.0
+
+                //radioGroup.Valtellina.isChecked -> getCost("http://192.168.1.3:4000/api/cost?option3=1")
+                radioGroup.Valtellina.isChecked -> cost = 19.0
+
+                //radioGroup.Calzone.isChecked -> getCost("http://192.168.1.3:4000/api/cost?option4=2")
+                radioGroup.Calzone.isChecked -> 26.0
+            }*/
+
+            displayView.text = cost.toString()
+        }
     }
 
     // camera on or camera off code before Android API LOLLIPOP (7.0)
@@ -170,7 +198,95 @@ class MainActivity : AppCompatActivity() {
     }
 
 
+    private fun initImageToText() {
 
+        /** declaring variables for image to text */
+        val iv: ImageView = findViewById(R.id.addView)
+        iv.setImageResource(R.drawable.advertisement)
+        var image_text: String = ""
+
+        //Retrieve bitmap from imageView.
+        val bitmap = (iv.getDrawable() as BitmapDrawable).bitmap
+
+        //Initialize text recognizer and image frame.
+        val textRecognizer = TextRecognizer.Builder(applicationContext).build()
+        val imageFrame = Frame.Builder()
+            .setBitmap(bitmap)
+            .build()
+
+        // Detect image frame and get text blocks.
+        val textBlocks: SparseArray<TextBlock> = textRecognizer.detect(imageFrame)
+
+        // Cache texts retrieved from text blocks to result.
+        for (i in 0 until textBlocks.size()) {
+            //val textBlock = textBlocks.get(textBlocks.keyAt(i))
+            val textBlock = textBlocks.get(textBlocks.keyAt(i))
+
+            image_text += textBlock.value
+        }
+
+        // Display the text from the image upon clicking image
+        iv.setOnClickListener {
+            Toast.makeText(this, image_text, Toast.LENGTH_LONG).show()
+        }
+
+    }
+
+
+    // Get the cost of pizza using RESTful API depending on selections. This method is called with clicking of radio buttons
+
+    fun getCost(url: String) {
+
+
+        val client: OkHttpClient = OkHttpClient()
+        val request = Request.Builder()
+            .url(url)
+            .build()
+
+        val call = client.newCall(request)
+
+        /* asyn call */
+        call.enqueue(object : Callback {
+            override fun onFailure(request: Request?, e: IOException?) {
+                println(e?.message)
+            }
+
+            @Throws(IOException::class)
+            override fun onResponse(response: Response?) {
+
+                if (response?.isSuccessful!!){
+
+                    runOnUiThread {
+                        val response = response.body().string()
+
+                        try {
+                            val jsonObject = JSONObject(response)
+                            val message: String = jsonObject.get("message").toString()
+                            runOnUiThread {
+                                var cost: Double = message.toDouble()
+                                if (OnionsCheckBox.isChecked) { cost += 1}
+                                if (OlivesCheckBox.isChecked) { cost += 2}
+                                if (TomatoesCheckBox.isChecked) {cost += 3}
+                                //displayView.text = cost.toString()
+                                orderbutton.setOnClickListener {
+                                    displayView.text = "16.0"
+                                }
+
+
+                            }
+                        } catch (e: JSONException) {
+                            e.printStackTrace()
+                        }
+                    }
+                }
+            }
+        }
+        )
+
+    }
+
+
+    // Get pizza prices
     fun onPlaceOrderButtonClicked(view: View){
         var pizzaSizePrice=0.0
         var toppingsTotal=0.0
